@@ -1,2 +1,8 @@
 dataset/
 .DS_Store
+cocochorales_tiny_v1_zipped/cocochorales_md5s.txt
+cocochorales_tiny_v1_zipped/f0/train/1.tar.bz2
+cocochorales_tiny_v1_zipped/main_dataset/train/1.tar.bz2
+cocochorales_tiny_v1_zipped/metadata/train/1.tar.bz2
+cocochorales_tiny_v1_zipped/note_expression/train/1.tar.bz2
+cocochorales_tiny_v1_zipped/synthesis_parameters/train/1.tar.bz2
