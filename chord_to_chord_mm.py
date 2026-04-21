@@ -5,18 +5,21 @@ reduces the space we need to deal with. Chord transitions don't depend on the
 key that the song is in.
 '''
 
-# for every song in dataset/1/[song_file]/mix.mid
+# for every song in dataset/1/train/[song_file]/mix.mid
 #     midi_parse it to get chord array for song ('Dm', 'GM', 'CM')
-#     save chord array to dataset/1/[song_file]/chords.json
+#     save chord array to dataset/1/train/[song_file]/chords.json
 
 import os
 import json
 
+from tqdm import tqdm
+
 from midi_parser import midi_parse 
 
-dataset_dir = "dataset/1"
+dataset_dir = "dataset/1/train"
 
-for song_folder in os.listdir(dataset_dir):
+song_folders = os.listdir(dataset_dir)
+for song_folder in tqdm(song_folders, desc="Parsing MIDI", unit="song"):
     song_path = os.path.join(dataset_dir, song_folder, "mix.mid")
     chords_json_path = os.path.join(dataset_dir, song_folder, "chords.json")
     if os.path.exists(song_path):
@@ -25,7 +28,7 @@ for song_folder in os.listdir(dataset_dir):
             with open(chords_json_path, "w") as f:
                 json.dump(chords, f)
         except Exception as e:
-            print(f"Error processing {song_path}: {e}")
+            tqdm.write(f"Error processing {song_path}: {e}")
 
 def chord_to_chord_mm(dataset_dir):
     '''
@@ -41,9 +44,21 @@ def chord_to_chord_mm(dataset_dir):
     '''
     roots = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
     root_to_idx = {r: i for i, r in enumerate(roots)}
+    # alias enharmonic spellings (flats + theoretical E#/B#/Cb/Fb) to a canonical index
+    enharmonic_aliases = {
+        'Db': 'C#', 'Eb': 'D#', 'Gb': 'F#', 'Ab': 'G#', 'Bb': 'A#',
+        'E#': 'F',  'B#': 'C',  'Cb': 'B',  'Fb': 'E',
+    }
+    for alias, canonical in enharmonic_aliases.items():
+        root_to_idx[alias] = root_to_idx[canonical]
     n = len(roots)
 
     transition_matrix = [[0] * n for _ in range(n)]
+
+    def extract_root(chord_str):
+        if len(chord_str) > 1 and chord_str[1] in ('#', 'b'):
+            return chord_str[:2]
+        return chord_str[0]
 
     for song_folder in os.listdir(dataset_dir):
         chords_json_path = os.path.join(dataset_dir, song_folder, "chords.json")
@@ -52,8 +67,8 @@ def chord_to_chord_mm(dataset_dir):
         with open(chords_json_path, "r") as f:
             chords = json.load(f)
         for i in range(1, len(chords)):
-            prev_root = chords[i-1][:2] if len(chords[i-1]) > 1 and chords[i-1][1] == '#' else chords[i-1][0]
-            curr_root = chords[i][:2]   if len(chords[i])   > 1 and chords[i][1]   == '#' else chords[i][0]
+            prev_root = extract_root(chords[i-1])
+            curr_root = extract_root(chords[i])
             if prev_root in root_to_idx and curr_root in root_to_idx:
                 transition_matrix[root_to_idx[prev_root]][root_to_idx[curr_root]] += 1
 
@@ -65,3 +80,5 @@ def chord_to_chord_mm(dataset_dir):
                 transition_matrix[row][col] /= row_sum
 
     return transition_matrix
+
+    
