@@ -60,6 +60,17 @@ def unpack_midi(midi_filename):
 
 
 def get_piano_roll(track, PPQ, freq, num_beats, plot=False):
+    """
+    Arguments:
+    track - a mido track object representing one midi track
+    PPQ - the resolution of the midi file per quarter note
+    freq - the number of times we sample per quarter note
+    num_beats - the number of quarter notes in the recording
+    plot - a boolean (True/False) that will plot the piano roll
+
+    Returns:
+    a 128 by (freq * num_beats) numpy array representing note activations over time in the track
+    """
     total_samples = freq * num_beats
     output_array = np.zeros((128, total_samples))
 
