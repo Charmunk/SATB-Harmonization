@@ -21,6 +21,9 @@ dataset_dir = "dataset/1/train"
 song_folders = os.listdir(dataset_dir)
 for song_folder in tqdm(song_folders, desc="Parsing MIDI", unit="song"):
     song_path = os.path.join(dataset_dir, song_folder, "mix.mid")
+    # if the song_path ends with ".mid.mid", remove the extra ".mid"
+    if song_path.endswith(".mid.mid"):
+        song_path = song_path[:-4]
     chords_json_path = os.path.join(dataset_dir, song_folder, "chords.json")
     if os.path.exists(song_path):
         try:

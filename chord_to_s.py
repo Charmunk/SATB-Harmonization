@@ -1,3 +1,9 @@
+import midi_parser as mp
+import numpy as np
+import importlib
+import matplotlib.pyplot as plt
+import os
+
 def getChordToS(dataset_dir, numChords=21, numNotes=128, debug=False):
     """
     Construct pdf for soprano line given chord

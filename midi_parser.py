@@ -144,7 +144,7 @@ def roll_to_chord(roll):
         ordered_notes = rearrange_chord(notes, notes[0]) #assume the bass note is the bottom note
         chord = pychord.analyzer.find_chords_from_notes(ordered_notes) #can have it just return the notes
 
-        #transpose the chord so it's in C major
+        # transpose the chord so it's in C major
         if chord != []:
             # print(chord)
             if len(chord) == 1:
