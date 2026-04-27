@@ -7,34 +7,58 @@ note0,note1,note2,note3    --> maps to S, A, T, B so if you need just A, select 
 72,64,55,48
 72,64,55,48
 
-creates 
+creates
 
 chorale_#_chords.csv.
+
+TODO: chords need to be ordered so they are in root voicing. Otherwise,
+pychord will shit the bed.
 
 '''
 
 from pychord import find_chords_from_notes
+import csv
 import os
 
-# Example MIDI note numbers for a C major chord (C4, E4, G4)
-# 60 = C4, 64 = E4, 67 = G4
-midi_notes = [60, 64, 67]
 
-# 1. Convert MIDI note numbers to note names (simplest way)
 def midi_to_note(midi_num):
     notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
     return notes[midi_num % 12]
 
-# loop through every file in dataset.
-dataset = 'dataset/jsb_chorales'
 
-# For every file in dataset (this means in the folders 'test', 'train', 'valid'),
-# create a new csv for that file, appending [original_file]_chords.csv.
+def note_names_for_chord(midis):
+    """Pitch classes in S,A,T,B order, first occurrence only (pychord rejects duplicate names)."""
+    seen = set()
+    out = []
+    for n in midis:
+        pc = n % 12
+        if pc in seen:
+            continue
+        seen.add(pc)
+        out.append(midi_to_note(n))
+    return out
+
+
+# Walk chorale CSVs under this directory (train / valid / test).
+dataset = os.path.dirname(os.path.abspath(__file__))
 
 for root, dirs, files in os.walk(dataset):
     for file in files:
-        # Join root and file to get the full path
-        print("making chords.csv for", os.path.join(root, file))
-        note_names = [midi_to_note(n) for n in midi_notes]
-        chord = find_chords_from_notes(note_names)[0]
-        
+        if not file.endswith('.csv') or file.endswith('_chords.csv'):
+            continue
+        src_path = os.path.join(root, file)
+        base, _ = os.path.splitext(file)
+        out_path = os.path.join(root, f'{base}_chords.csv')
+        print('making', out_path, 'from', src_path)
+        with open(src_path, newline='') as f_in, open(out_path, 'w', newline='') as f_out:
+            reader = csv.reader(f_in)
+            writer = csv.writer(f_out)
+            next(reader, None)  # skip note0,note1,note2,note3 header
+            for row in reader:
+                if len(row) < 4:
+                    continue
+                midis = [int(row[i]) for i in range(4)]
+                note_names = note_names_for_chord(midis)
+                found = find_chords_from_notes(note_names) if note_names else []
+                chord_str = str(found[0]) if found else ''
+                writer.writerow([chord_str])
