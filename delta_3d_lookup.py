@@ -40,7 +40,7 @@ def delta_2_index(delta, num_semitones=4):
     elif -1*num_semitones <= delta < 0:
         return int((2*num_semitones+1)+delta)
     else:
-        print(f'd2i: delta = {delta}, marking as a rest') #I'm assuming this is unlikely
+        #print(f'd2i: delta = {delta}, marking as a rest') #I'm assuming this is unlikely
         return int((2*num_semitones+1))
 
 
@@ -52,12 +52,12 @@ def index_2_delta(index, num_semitones=4):
     elif num_semitones < index < 2*num_semitones+1: #if delta is negative 
         return int(index - (2*num_semitones+1))
     else:
-        print(f'i2d: index = {index}, marking as a rest')
+        #print(f'i2d: index = {index}, marking as a rest')
         return int(100) #placeholder for rest
     
 
 def get_delta_3d_lookup(train_dir, num_semitones=4):
-
+    #returns the log probability matrix of P(delta | soprano_{n-1}, bass_n)
     #index by (bass, prev_sporano, delta)
     lookup_table = np.ones((128, 128, 2*num_semitones+2)) * 1/1000
 
@@ -69,7 +69,6 @@ def get_delta_3d_lookup(train_dir, num_semitones=4):
         # You can now use `csv_path` for each CSV file
         csv_path = os.path.join(train_dir, songname)
         
-        print(f"Processing {csv_path}")
         S, A, T, B = csv_to_tracks(csv_path)
         
         # Combine into array of tuples [(S, A, T, B)]
@@ -89,7 +88,6 @@ def get_delta_3d_lookup(train_dir, num_semitones=4):
 
         # normalize the lookup table (for each delta)
         for i in range(lookup_table.shape[2]):
-            print(i)
             lookup_table[:, :, i] = lookup_table[:, :, i] / np.sum(lookup_table[:, :, i])
             
-        return lookup_table
+        return np.log(lookup_table) #returns the log probability

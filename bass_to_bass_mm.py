@@ -1,6 +1,6 @@
 import numpy as np
 import os
-import json
+import glob
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
@@ -32,7 +32,8 @@ def train_bass_to_bass_markov(dataset_dir):
     arguments: a string with containing the training directory
     returns: a normalized B -> B markov transition matrix
     """
-    songs = os.listdir(dataset_dir)
+    songs = glob.glob('*.csv', root_dir=dataset_dir)
+    songs = [s for s in songs if not 'd' in s] #remove all strings with 'd' in them (filters out chord csv)
 
     #can can shrink because they don't have access to all notes, just going to make a 128x128 mat
     counts = np.zeros((128, 128), dtype='int64')
@@ -50,7 +51,7 @@ def train_bass_to_bass_markov(dataset_dir):
             N = len(B) #how many datapoints we have
 
             for i in range(1, N):
-                #if B[i-1] != B[i]:
+                #if B[i-1] != B[i]: #removes diagonal elements
                     counts[int(B[i-1]), int(B[i])] += 1
             
     transition_matrix = counts / np.sum(counts) #normalize
