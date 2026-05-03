@@ -56,7 +56,7 @@ def index_2_delta(index, num_semitones=4):
         return int(100) #placeholder for rest
     
 
-def get_delta_3d_lookup(train_dir, num_semitones=4):
+def get_delta_3d_lookup(train_dir, num_semitones=4, part='bass'):
     #returns the log probability matrix of P(delta | soprano_{n-1}, bass_n)
     #index by (bass, prev_sporano, delta)
     lookup_table = np.ones((128, 128, 2*num_semitones+2)) * 1/1000
@@ -75,7 +75,7 @@ def get_delta_3d_lookup(train_dir, num_semitones=4):
         SATB_tuples = list(zip(S, A, T, B))
         for i in range(1, len(SATB_tuples)):
             #get current tuple
-            s, _, _, b = SATB_tuples[i]
+            s, a, t, b = SATB_tuples[i]
 
             # get previous soprano note
             prev_s = SATB_tuples[i-1][0]
@@ -83,8 +83,15 @@ def get_delta_3d_lookup(train_dir, num_semitones=4):
             # get delta
             delta = s - prev_s
 
-            # add 1 to the lookup table at index (bass, prev_soprano, delta)
-            lookup_table[int(b), int(prev_s), delta_2_index(delta)] += 1
+            # add 1 to the lookup table at index (part, prev_soprano, delta)
+            if part == 'bass':
+                lookup_table[int(b), int(prev_s), delta_2_index(delta)] += 1
+            elif part == 'alto':
+                lookup_table[int(a), int(prev_s), delta_2_index(delta)] += 1
+            elif part == 'tenor':
+                lookup_table[int(t), int(prev_s), delta_2_index(delta)] += 1
+            else:
+                raise ValueError(f"Invalid part: {part}")
 
         # normalize the lookup table (for each delta)
         for i in range(lookup_table.shape[2]):

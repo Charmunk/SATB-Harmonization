@@ -36,7 +36,7 @@ def train_bass_to_bass_markov(dataset_dir):
     songs = [s for s in songs if not 'd' in s] #remove all strings with 'd' in them (filters out chord csv)
 
     #can can shrink because they don't have access to all notes, just going to make a 128x128 mat
-    counts = np.zeros((128, 128), dtype='int64')
+    counts = np.ones((128, 128), dtype='int64') *1/1000 #add an epsilon so no divide by zero
 
     for song in tqdm(songs, desc="Parsing CSVs", unit="song"):
         song_path = os.path.join(dataset_dir, song)
@@ -51,8 +51,11 @@ def train_bass_to_bass_markov(dataset_dir):
             N = len(B) #how many datapoints we have
 
             for i in range(1, N):
-                #if B[i-1] != B[i]: #removes diagonal elements
+                #if B[i-1] != B[i]:
                     counts[int(B[i-1]), int(B[i])] += 1
-            
-    transition_matrix = counts / np.sum(counts) #normalize
+    
+    transition_matrix = np.zeros_like(counts)
+    for i in range(transition_matrix.shape[0]):
+        transition_matrix[i, :] = counts[i, :] / np.sum(counts[i, :]) #normalize
+
     return transition_matrix
