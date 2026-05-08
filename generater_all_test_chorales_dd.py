@@ -16,37 +16,79 @@ import numpy as np
 
 from lookup_delta_3d import csv_to_tracks, delta_2_index, get_delta_3d_lookup
 from mm_part_to_part import train_part_to_part_markov
+from mm_chord_to_chord_dd import *
 
 
-def get_part_line(lookup_table: np.ndarray, A: np.ndarray, soprano_input: np.ndarray, l: float = 1.0) -> np.ndarray:
-    """Viterbi-style decoding from notebook generate_alto_tenor_bass_c-normalized.ipynb."""
+def get_part_line(lookup_table, A, soprano_input, l=1):
+    """
+    Inputs
+      - lookup_table: a matrix containing log probabilities P(delta | soprano_{n-1}, part_n) of size ((numchords), 128, 2*num_semitones+2), indexed (part, prev_soprano, delta)
+      - A: an numchords x numchords matrix specifying transitions of part's notes between moments in time
+      - soprano input -- a 1d array of soprano midi notes
+        
+    Outputs
+      - part_est: the supporting part line
+    """
+    ### INSERT CODE BELOW ###
+    numchords = lookup_table.shape[0]
+    #grab dimensions and initialize cumulative cost matrix
     N = np.size(soprano_input)
-    M = 128
+    M = numchords
 
-    A = np.clip(A, 1e-9, 1.0)
+    #make sure A and pi has no zeros
+    A = np.clip(A, 1E-9, 1) # we don't even have to renormalize?
 
     D = np.zeros((M, N))
-    B = np.zeros((M, N), dtype=np.int64)
+    B = np.zeros((M, N))
 
-    D[:, 0] = np.sum(lookup_table[:, :, :], axis=(1, 2))
+    #initialize probabilities
+    D[:, 0] = np.sum(lookup_table[:, :, :], axis=(1,2)) #should add log(P(O_1 | S_1)) term
+    #just writes total probability of being in that bass note (sums over soprano and delta dimensions)
 
+    #lookup table is indexed (bass, prev_soprano, delta)
+    #walk through the matrix
     for j in range(1, N):
-        delta = soprano_input[j] - soprano_input[j - 1]
-        prev_s = int(soprano_input[j - 1])
-        d_idx = delta_2_index(delta)
-        for i in range(M):
-            scores = D[:, j - 1] + np.log(A[:, i]) + l * lookup_table[:, prev_s, d_idx]
-            D[i, j] = np.max(scores)
-            B[i, j] = np.argmax(scores)
+      delta = soprano_input[j] - soprano_input[j-1]
+      for i in range(M):
+        D[i, j] = np.max(D[:, j-1] + np.log(A[:, i])+ l*lookup_table[:, int(soprano_input[j-1]), delta_2_index(delta)])
+        B[i,j] = np.argmax(D[:, j-1] + np.log(A[:, i])+ l*lookup_table[:, int(soprano_input[j-1]), delta_2_index(delta)])
 
-    part_est = np.zeros(N, dtype=np.int64)
-    endpoint = int(np.argmax(D[:, -1]))
+        #best_index = int(B[i,j])
+        #print(np.log(A[best_index, i]), l*lookup_table[best_index, int(soprano_input[j-1]), delta_2_index(delta)])
+  
+    part_est = np.zeros(N, dtype = int)
+    endpoint = np.argmax(D[:, -1])
     part_est[-1] = endpoint
 
-    for i in range(N - 2, -1, -1):
-        part_est[i] = B[int(part_est[i + 1]), i + 1]
+    for i in range(N-1)[::-1]:
+      part_est[i] = B[int(part_est[i+1]), i+1]
 
     return part_est
+
+def chordseq_to_parts(chordseq, idx_to_chord):
+    """
+    Inputs:
+        - chordseq: Nx1 arr of chord indices
+        - idx_to_chord: dict mapping chord_idx(int) --> (A, T, B) (tuple of midi ints)
+    Outputs:
+        - part_A: Nx1 arr of ints, corresponding to alto line (midi notes)
+        - part_T: Nx1 arr of ints, corresponding to tenor line (midi notes)
+        - part_B: Nx1 arr of ints, corresponding to base line (midi notes)
+    """
+    N = len(chordseq)
+    part_A = np.zeros(N, dtype = int)
+    part_T = np.zeros(N, dtype = int)
+    part_B = np.zeros(N, dtype = int)
+
+    for i in range(len(chordseq)):
+        chord_idx = chordseq[i]
+        chord = idx_to_chord[chord_idx]
+        (A, T, B) = chord
+        part_A[i] = A
+        part_T[i] = T
+        part_B[i] = B
+
+    return (part_A, part_T, part_B)
 
 
 def write_satb_csv(path: Path, S: np.ndarray, A: np.ndarray, T: np.ndarray, B: np.ndarray) -> None:
@@ -78,8 +120,8 @@ def main() -> None:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=repo / "generated",
-        help="Output directory for generated SATB CSVs.",
+        default=repo / "generated_dd",
+        help="Output directory for generatede SATB CSVs.",
     )
     parser.add_argument("--l", type=float, default=1.0, help="Likelihood scale (same as notebook l=1).")
     args = parser.parse_args()
@@ -90,10 +132,10 @@ def main() -> None:
         sys.exit(1)
 
     print("Building lookups and transitions from", train_dir)
-    lookup_table_bass = get_delta_3d_lookup(train_dir)
-    lookup_table_tenor = get_delta_3d_lookup(train_dir, part="tenor")
-    lookup_table_alto = get_delta_3d_lookup(train_dir, part="alto")
-    alto_to_alto_transition, tenor_to_tenor_transition, bass_to_bass_transition = train_part_to_part_markov(train_dir)
+    chord_to_idx, idx_to_chord, chord_to_chord = get_chord_dict(train_dir)
+    lookup_table_chord = get_delta_3d_lookup_chord(train_dir, chord_to_idx)
+    
+
 
     test_dir = args.test_dir.resolve()
     if not test_dir.is_dir():
@@ -113,9 +155,8 @@ def main() -> None:
         try:
             S, _, _, _ = csv_to_tracks(str(src))
             S = np.asarray(S, dtype=np.float64).astype(np.int64)
-            B = get_part_line(lookup_table_bass, bass_to_bass_transition, S, l=args.l)
-            A = get_part_line(lookup_table_alto, alto_to_alto_transition, S, l=args.l)
-            T = get_part_line(lookup_table_tenor, tenor_to_tenor_transition, S, l=args.l)
+            chordseq = get_part_line(lookup_table_chord, chord_to_chord, S, l=1)
+            A, T, B = chordseq_to_parts(chordseq, idx_to_chord)
             dest = out_root / src.name
             write_satb_csv(dest, S, A, T, B)
             ok += 1
