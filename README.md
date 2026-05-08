@@ -34,6 +34,14 @@ Large spikes in **one** column usually mean that chorale differs most from the r
 - **Reference** for default runs: `jsb_chorales_in_c/valid` (edit `--reference-dir` to change it).
 - **Baseline (real Bach, same grading recipe):** scores for the ground-truth test split are in `jsb_chorales_in_c/test/bach_grader_baseline.csv` and `.json` — use these as a ballpark for how low scores can go when the inner voices are real Bach, compared to the same reference.
 - **Model output:** scores for harmonizations in `generated/` are in `generated/bach_grader_results.csv` and `.json`.
+- **Random “bad” baseline:** independent uniform MIDI in each of the four columns (same row counts as test, seed 0, notes 40–84). Files live under `random_chorales/`; grader output is `bach_grader_random_baseline.csv` / `.json`. Use this only as a rough **upper** anchor (unstructured noise); the scale between random → model → Bach is not linear. With default settings, mean **overall** is on the order of **~88** vs **~10** for the real Bach `jsb_chorales_in_c/test` baseline (same reference split)—your **`generated/`** scores should fall between those in principle, but feature-wise gaps are not uniform.
+
+Regenerate random CSVs + scores:
+
+```bash
+python3 build_random_baseline.py
+python3 build_random_baseline.py --no-grade    # CSVs only
+```
 
 Run:
 
