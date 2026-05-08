@@ -7,6 +7,7 @@ Consecutive rows with the same four pitches are rendered as one sustained chord.
 Usage:
   python3 jsb_chorales_in_c/play_chorale_csv.py jsb_chorales_in_c/test/chorale_305.csv
   python3 jsb_chorales_in_c/play_chorale_csv.py jsb_chorales_in_c/test/chorale_305.csv -o results/chorale_305.wav
+  python3 jsb_chorales_in_c/play_chorale_csv.py generated/
   python3 jsb_chorales_in_c/play_chorale_csv.py jsb_chorales_in_c/test/chorale_305.csv --bpm 96 --sr 48000
 """
 
@@ -136,23 +137,48 @@ def render_wav(
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Chorale CSV → WAV (1 row = 1/16 note).")
-    p.add_argument("csv", type=Path, help="Path to chorale_*.csv (note0..note3)")
+    p.add_argument(
+        "csv",
+        type=Path,
+        help="Path to chorale_*.csv (note0..note3), or a directory of *.csv files",
+    )
     p.add_argument(
         "-o",
         "--output",
         type=Path,
         default=None,
-        help="Output .wav path (default: same basename as CSV)",
+        help=(
+            "Single file: output .wav path (default: next to CSV). "
+            "Directory input: optional output directory (default: same folder as each CSV)."
+        ),
     )
     p.add_argument("--bpm", type=float, default=120.0, help="Tempo in BPM (default 120)")
     p.add_argument("--sr", type=int, default=44100, help="Sample rate (default 44100)")
     args = p.parse_args()
 
-    out = args.output
-    if out is None:
-        out = args.csv.with_suffix(".wav")
+    src = args.csv
+    if src.is_dir():
+        paths = sorted(
+            x for x in src.glob("*.csv") if not x.name.endswith("_chords.csv")
+        )
+        if not paths:
+            raise SystemExit(f"No CSV files found in {src}")
+        out_dir = args.output
+        for csv_path in paths:
+            if out_dir is None:
+                out = csv_path.with_suffix(".wav")
+            else:
+                out = out_dir / f"{csv_path.stem}.wav"
+            render_wav(csv_path, out, bpm=args.bpm, sample_rate=args.sr)
+            print(f"Wrote {out}")
+        print(f"Rendered {len(paths)} WAV file(s).")
+        return
 
-    render_wav(args.csv, out, bpm=args.bpm, sample_rate=args.sr)
+    if not src.is_file():
+        raise SystemExit(f"Not a file or directory: {src}")
+
+    out = args.output if args.output is not None else src.with_suffix(".wav")
+    render_wav(src, out, bpm=args.bpm, sample_rate=args.sr)
     print(f"Wrote {out}")
 
 

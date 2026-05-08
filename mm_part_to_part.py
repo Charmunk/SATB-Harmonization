@@ -2,7 +2,6 @@ import numpy as np
 import os
 import glob
 from tqdm import tqdm
-import matplotlib.pyplot as plt
 
 def csv_to_tracks(file_path):
     """
