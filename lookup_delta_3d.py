@@ -19,7 +19,8 @@ def csv_to_tracks(file_path):
         file_path, 
         delimiter=',', 
         unpack=True, 
-        skip_header=1
+        skip_header=1,
+        dtype=int
     )
     
     return S, A, T, B
